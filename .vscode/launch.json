@@ -1,0 +1,67 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Node: Paperless-AI",
+            "program": "${workspaceFolder}/server.js",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/data/.env",
+            "env": {
+                "RAG_SERVICE_URL": "http://localhost:3001",
+                "RAG_SERVICE_ENABLED": "true"
+            },
+            "console": "integratedTerminal",
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        },
+        {
+            "type": "debugpy",
+            "request": "launch",
+            "name": "Python: RAG Service",
+            "program": "${workspaceFolder}/main.py",
+            "args": [
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "3001",
+                "--initialize"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "python": "${workspaceFolder}/venv/bin/python",
+            "justMyCode": true
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Node: Launch with Nodemon",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": [
+                "test"
+            ],
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/data/.env",
+            "env": {
+                "RAG_SERVICE_URL": "http://localhost:3001",
+                "RAG_SERVICE_ENABLED": "true"
+            },
+            "console": "integratedTerminal",
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Full Stack: Node + Python RAG",
+            "configurations": [
+                "Python: RAG Service",
+                "Node: Paperless-AI"
+            ],
+            "stopAll": true
+        }
+    ]
+}
