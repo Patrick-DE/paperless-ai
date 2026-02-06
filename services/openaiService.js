@@ -133,6 +133,18 @@ class OpenAIService {
         config
       );
 
+      // Fix for issue #766: Inject available tags/correspondents/document types when restrictions are enabled
+      const restrictionPrompt = RestrictionPromptService.buildRestrictionPrompt(
+        config,
+        existingTags,
+        existingCorrespondentList,
+        existingDocumentTypesList
+      );
+      if (restrictionPrompt) {
+        systemPrompt = restrictionPrompt + systemPrompt;
+        console.log('[DEBUG] Injected restriction instructions into prompt');
+      }
+
       // Include validated external API data if available
       if (validatedExternalApiData) {
         systemPrompt += `\n\nAdditional context from external API:\n${validatedExternalApiData}`;

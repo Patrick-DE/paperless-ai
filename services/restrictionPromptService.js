@@ -17,6 +17,57 @@ class RestrictionPromptService {
   }
 
   /**
+   * Build restriction instructions to prepend to the prompt when restrictions are enabled
+   * This ensures the AI knows which tags/correspondents/document types are available
+   * @param {Object} config - Configuration object with restriction settings
+   * @param {Array} existingTags - Array of existing tags from Paperless-ngx
+   * @param {Array|string} existingCorrespondentList - List of existing correspondents
+   * @param {Array} existingDocumentTypes - Array of existing document types
+   * @returns {string} - Restriction instructions to prepend to the prompt
+   */
+  static buildRestrictionPrompt(config, existingTags, existingCorrespondentList, existingDocumentTypes = []) {
+    const restrictionParts = [];
+
+    // Check if tag restrictions are enabled
+    if (config.restrictToExistingTags === 'yes' || config.restrictToExistingTags === true) {
+      const tagsList = this._formatTagsList(existingTags);
+      if (tagsList) {
+        restrictionParts.push(
+          `IMPORTANT: You must ONLY use tags from this list. Do not create or suggest any tags not in this list:\nAvailable tags: ${tagsList}`
+        );
+      }
+    }
+
+    // Check if correspondent restrictions are enabled
+    if (config.restrictToExistingCorrespondents === 'yes' || config.restrictToExistingCorrespondents === true) {
+      const correspondentsList = this._formatCorrespondentsList(existingCorrespondentList);
+      if (correspondentsList) {
+        restrictionParts.push(
+          `IMPORTANT: You must ONLY use correspondents from this list. Do not create or suggest any correspondents not in this list:\nAvailable correspondents: ${correspondentsList}`
+        );
+      }
+    }
+
+    // Check if document type restrictions are enabled
+    if (config.restrictToExistingDocumentTypes === 'yes' || config.restrictToExistingDocumentTypes === true) {
+      const docTypesList = Array.isArray(existingDocumentTypes)
+        ? existingDocumentTypes.filter(dt => dt && dt.name).map(dt => dt.name).join(', ')
+        : '';
+      if (docTypesList) {
+        restrictionParts.push(
+          `IMPORTANT: You must ONLY use document types from this list. Do not create or suggest any document types not in this list:\nAvailable document types: ${docTypesList}`
+        );
+      }
+    }
+
+    if (restrictionParts.length > 0) {
+      return '\n\n' + restrictionParts.join('\n\n') + '\n\n';
+    }
+
+    return '';
+  }
+
+  /**
    * Replace placeholders in the prompt with actual data
    * @param {string} prompt - The original prompt
    * @param {Array} existingTags - Array of existing tags
