@@ -63,7 +63,7 @@ class SetupService {
       }
     }
     return { success: true, message: 'API permissions validated successfully' };
-}
+  }
 
 
   async validateOpenAIConfig(apiKey) {
@@ -82,7 +82,7 @@ class SetupService {
         console.error('OpenAI validation error:', error.message);
         return false;
       }
-    }else{
+    } else {
       return true;
     }
   }
@@ -95,18 +95,23 @@ class SetupService {
     };
     console.log('Custom AI config:', config);
     try {
-      const openai = new OpenAI({ 
-        apiKey: config.apiKey, 
+      const openai = new OpenAI({
+        apiKey: config.apiKey,
         baseURL: config.baseURL,
       });
       const completion = await openai.chat.completions.create({
         messages: [{ role: "user", content: "Test" }],
         model: config.model,
       });
-      return completion.choices && completion.choices.length > 0;
+      return { valid: completion.choices && completion.choices.length > 0, rateLimited: false };
     } catch (error) {
       console.error('Custom AI validation error:', error);
-      return false;
+      // Check if it's a rate limit error (429)
+      if (error.status === 429) {
+        console.log('Rate limited during validation - treating as valid with warning');
+        return { valid: true, rateLimited: true };
+      }
+      return { valid: false, rateLimited: false };
     }
   }
 
@@ -130,10 +135,12 @@ class SetupService {
     console.log('Endpoint: ', endpoint);
     if (config.CONFIGURED === false) {
       try {
-        const openai = new AzureOpenAI({ apiKey: apiKey,
-                endpoint: endpoint,
-                deploymentName: deploymentName,
-                apiVersion: apiVersion });
+        const openai = new AzureOpenAI({
+          apiKey: apiKey,
+          endpoint: endpoint,
+          deploymentName: deploymentName,
+          apiVersion: apiVersion
+        });
         const response = await openai.chat.completions.create({
           model: deploymentName,
           messages: [{ role: "user", content: "Test" }],
@@ -146,7 +153,7 @@ class SetupService {
         console.error('OpenAI validation error:', error.message);
         return false;
       }
-    }else{
+    } else {
       return true;
     }
   }
@@ -158,7 +165,7 @@ class SetupService {
       paperlessApiUrl,
       config.PAPERLESS_API_TOKEN
     );
-    
+
     if (!paperlessValid) {
       throw new Error('Invalid Paperless configuration');
     }
@@ -167,7 +174,7 @@ class SetupService {
     const aiProvider = config.AI_PROVIDER || 'openai';
 
     console.log('AI provider:', aiProvider);
-    
+
     if (aiProvider === 'openai') {
       const openaiValid = await this.validateOpenAIConfig(config.OPENAI_API_KEY);
       if (!openaiValid) {
@@ -182,13 +189,19 @@ class SetupService {
         throw new Error('Invalid Ollama configuration');
       }
     } else if (aiProvider === 'custom') {
-      const customValid = await this.validateCustomConfig(
+      const customResult = await this.validateCustomConfig(
         config.CUSTOM_BASE_URL,
         config.CUSTOM_API_KEY,
         config.CUSTOM_MODEL
       );
-      if (!customValid) {
+      if (!customResult.valid) {
         throw new Error('Invalid Custom AI configuration');
+      }
+      if (customResult.rateLimited) {
+        // Store the rate limited status so it can be shown as a warning
+        this.rateLimitWarning = true;
+      } else {
+        this.rateLimitWarning = false;
       }
     } else if (aiProvider === 'azure') {
       const azureValid = await this.validateAzureConfig(
@@ -236,7 +249,7 @@ class SetupService {
         .join('\n');
 
       await fs.writeFile(this.envPath, envContent);
-      
+
       // Reload environment variables
       Object.entries(config).forEach(([key, value]) => {
         process.env[key] = value;

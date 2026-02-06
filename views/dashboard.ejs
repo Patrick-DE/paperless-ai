@@ -100,6 +100,15 @@
                 <div class="content-header flex items-center justify-between">
                     <h2 class="content-title">Dashboard Overview</h2>
                     <div class="flex items-center gap-4">
+                        <% if (rateLimitWarning) { %>
+                        <div class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-amber-100 border border-amber-400 text-amber-800 px-6 py-3 rounded-xl shadow-lg flex items-center gap-3">
+                            <i class="fas fa-exclamation-triangle text-amber-500"></i>
+                            <div>
+                                <span class="font-medium">Rate Limited:</span>
+                                <span class="text-sm">Your AI provider is currently rate limiting requests. Document processing may be delayed.</span>
+                            </div>
+                        </div>
+                        <% } %>
                         <div id="updateNotification" class="hidden fixed bottom-4 right-4 z-50">
                             <a href="https://github.com/clusterzx/paperless-ai/releases/" target="_blank" 
                                class="group flex items-center gap-3 bg-white px-4 py-3 rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">

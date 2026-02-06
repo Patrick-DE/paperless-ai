@@ -435,6 +435,11 @@ class CustomOpenAIService {
 
       return { status: 'ok', model: model };
     } catch (error) {
+      // Check if this is a rate limit error (429)
+      if (error.status === 429) {
+        console.warn('AI provider rate limited during status check');
+        return { status: 'rate_limited', model: config.custom.model };
+      }
       console.error('Error generating text with Custom OpenAI:', error);
       return { status: 'error' };
     }
