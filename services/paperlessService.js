@@ -1376,10 +1376,20 @@ class PaperlessService {
             dateObject = new Date(1990, 0, 1);
           }
 
-          updateData = {
-            ...updates,
-            created: format(dateObject, 'yyyy-MM-dd'),
-          };
+          // Fix for issue #835: Prevent setting creation date to a future date
+          const today = new Date();
+          today.setHours(23, 59, 59, 999); // End of today for comparison
+          if (dateObject > today) {
+            console.warn(`[WARN] Extracted date ${updates.created} is in the future, skipping creation date update`);
+            // Remove the created field from updates - don't set a future date
+            const { created, ...updatesWithoutDate } = updates;
+            updateData = { ...updatesWithoutDate };
+          } else {
+            updateData = {
+              ...updates,
+              created: format(dateObject, 'yyyy-MM-dd'),
+            };
+          }
         } else {
           updateData = { ...updates };
         }
