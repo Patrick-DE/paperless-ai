@@ -393,7 +393,7 @@ class CustomOpenAIService {
           }
         ],
         temperature: 0.7,
-        max_tokens: 128000
+        max_tokens: parseInt(process.env.RESPONSE_TOKENS) || parseInt(process.env.TOKEN_LIMIT) || 4096
       });
 
       if (!response?.choices?.[0]?.message?.content) {
