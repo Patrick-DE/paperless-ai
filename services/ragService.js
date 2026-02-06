@@ -6,7 +6,7 @@ const paperlessService = require('./paperlessService');
 
 class RagService {
   constructor() {
-    this.baseUrl = process.env.RAG_SERVICE_URL || 'http://localhost:8000';
+    this.baseUrl = process.env.RAG_SERVICE_URL || 'http://localhost:3001';
   }
 
   /**
@@ -56,16 +56,16 @@ class RagService {
   async askQuestion(question) {
     try {
       // 1. Get context from the RAG service
-      const response = await axios.post(`${this.baseUrl}/context`, { 
+      const response = await axios.post(`${this.baseUrl}/context`, {
         question,
         max_sources: 5
       });
-      
+
       const { context, sources } = response.data;
-      
+
       // 2. Fetch full content for each source document using doc_id
       let enhancedContext = context;
-      
+
       if (sources && sources.length > 0) {
         // Fetch full document content for each source
         const fullDocContents = await Promise.all(
@@ -82,14 +82,14 @@ class RagService {
             return '';
           })
         );
-        
+
         // Combine original context with full document contents
         enhancedContext = context + '\n\n' + fullDocContents.filter(content => content).join('\n\n');
       }
-      
+
       // 3. Use AI service to generate an answer based on the enhanced context
       const aiService = AIServiceFactory.getService();
-      
+
       // Create a language-agnostic prompt that works in any language
       const prompt = `
         You are a helpful assistant that answers questions about documents.
@@ -116,7 +116,7 @@ class RagService {
         console.error('Error generating answer with AI service:', error);
         answer = "An error occurred while generating an answer. Please try again later.";
       }
-      
+
       return {
         answer,
         sources
@@ -134,9 +134,9 @@ class RagService {
    */
   async indexDocuments(force = false) {
     try {
-      const response = await axios.post(`${this.baseUrl}/indexing/start`, { 
-        force, 
-        background: true 
+      const response = await axios.post(`${this.baseUrl}/indexing/start`, {
+        force,
+        background: true
       });
       return response.data;
     } catch (error) {
@@ -199,7 +199,8 @@ class RagService {
       return status;
     } catch (error) {
       console.error('Error checking AI service status:', error);
-      throw error;
+      // Return a graceful error status instead of throwing
+      return { status: 'error', error: error.message };
     }
   }
 }

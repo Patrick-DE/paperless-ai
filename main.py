@@ -1999,7 +1999,7 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description="RAGZ Document Search API")
-    parser.add_argument("--port", type=int, default=8000, help="Port to run the server on")
+    parser.add_argument("--port", type=int, default=3001, help="Port to run the server on")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to run the server on")
     parser.add_argument("--initialize", action="store_true", help="Initialize search engine on startup if needed")
     parser.add_argument("--force-refresh", action="store_true", help="Force refresh documents from API")
