@@ -421,6 +421,11 @@ class OpenAIService {
       }
       return { status: 'ok', model: process.env.OPENAI_MODEL };
     } catch (error) {
+      // Check if this is a rate limit error (429)
+      if (error.status === 429) {
+        console.warn('OpenAI rate limited during status check');
+        return { status: 'rate_limited', model: process.env.OPENAI_MODEL };
+      }
       console.error('Error checking OpenAI status:', error);
       return { status: 'error', error: error.message };
     }

@@ -77,13 +77,18 @@ class SetupService {
         const now = new Date();
         const timestamp = now.toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' });
         console.log(`[DEBUG] [${timestamp}] OpenAI request sent`);
-        return response.choices && response.choices.length > 0;
+        return { valid: response.choices && response.choices.length > 0, rateLimited: false };
       } catch (error) {
         console.error('OpenAI validation error:', error.message);
-        return false;
+        // Check if it's a rate limit error (429)
+        if (error.status === 429) {
+          console.log('Rate limited during OpenAI validation - treating as valid with warning');
+          return { valid: true, rateLimited: true };
+        }
+        return { valid: false, rateLimited: false };
       }
     } else {
-      return true;
+      return { valid: true, rateLimited: false };
     }
   }
 
@@ -93,7 +98,7 @@ class SetupService {
       apiKey: apiKey,
       model: model
     };
-    console.log('Custom AI config:', config);
+    console.log('Custom AI config:', { baseURL: url, model: model }); // Note: apiKey intentionally not logged
     try {
       const openai = new OpenAI({
         apiKey: config.apiKey,
@@ -147,14 +152,19 @@ class SetupService {
         });
         const now = new Date();
         const timestamp = now.toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' });
-        console.log(`[DEBUG] [${timestamp}] OpenAI request sent`);
-        return response.choices && response.choices.length > 0;
+        console.log(`[DEBUG] [${timestamp}] Azure OpenAI request sent`);
+        return { valid: response.choices && response.choices.length > 0, rateLimited: false };
       } catch (error) {
-        console.error('OpenAI validation error:', error.message);
-        return false;
+        console.error('Azure validation error:', error.message);
+        // Check if it's a rate limit error (429)
+        if (error.status === 429) {
+          console.log('Rate limited during Azure validation - treating as valid with warning');
+          return { valid: true, rateLimited: true };
+        }
+        return { valid: false, rateLimited: false };
       }
     } else {
-      return true;
+      return { valid: true, rateLimited: false };
     }
   }
 
@@ -173,12 +183,18 @@ class SetupService {
     // Validate AI provider config
     const aiProvider = config.AI_PROVIDER || 'openai';
 
+    // Reset rate limit warning at start of validation
+    this.rateLimitWarning = false;
+
     console.log('AI provider:', aiProvider);
 
     if (aiProvider === 'openai') {
-      const openaiValid = await this.validateOpenAIConfig(config.OPENAI_API_KEY);
-      if (!openaiValid) {
+      const openaiResult = await this.validateOpenAIConfig(config.OPENAI_API_KEY);
+      if (!openaiResult.valid) {
         throw new Error('Invalid OpenAI configuration');
+      }
+      if (openaiResult.rateLimited) {
+        this.rateLimitWarning = true;
       }
     } else if (aiProvider === 'ollama') {
       const ollamaValid = await this.validateOllamaConfig(
@@ -198,20 +214,20 @@ class SetupService {
         throw new Error('Invalid Custom AI configuration');
       }
       if (customResult.rateLimited) {
-        // Store the rate limited status so it can be shown as a warning
         this.rateLimitWarning = true;
-      } else {
-        this.rateLimitWarning = false;
       }
     } else if (aiProvider === 'azure') {
-      const azureValid = await this.validateAzureConfig(
+      const azureResult = await this.validateAzureConfig(
         config.AZURE_API_KEY,
         config.AZURE_ENDPOINT,
         config.AZURE_DEPLOYMENT_NAME,
         config.AZURE_API_VERSION
       );
-      if (!azureValid) {
+      if (!azureResult.valid) {
         throw new Error('Invalid Azure configuration');
+      }
+      if (azureResult.rateLimited) {
+        this.rateLimitWarning = true;
       }
     }
 
