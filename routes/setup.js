@@ -147,8 +147,46 @@ router.use(async (req, res, next) => {
   const token = req.cookies.jwt || req.headers.authorization?.split(' ')[1];
   const apiKey = req.headers['x-api-key'];
 
-  // Public route check
-  if (PUBLIC_ROUTES.some(route => req.path.startsWith(route))) {
+  // Security fix for issue #840: Check if users exist before allowing unauthenticated /setup access
+  // If users exist, /setup requires authentication to prevent password override attacks
+  if (req.path.startsWith('/setup')) {
+    try {
+      const users = await documentModel.getUsers();
+      const hasExistingUsers = users && users.length > 0;
+
+      if (hasExistingUsers) {
+        // Users exist - require authentication
+        if (!token && !apiKey) {
+          console.log('[SECURITY] Setup page access denied: users exist but no authentication provided');
+          return res.redirect('/login');
+        }
+        // Verify token if provided
+        if (token) {
+          try {
+            jwt.verify(token, JWT_SECRET);
+          } catch (error) {
+            console.log('[SECURITY] Setup page access denied: invalid token');
+            res.clearCookie('jwt');
+            return res.redirect('/login');
+          }
+        } else if (apiKey && apiKey !== process.env.API_KEY) {
+          console.log('[SECURITY] Setup page access denied: invalid API key');
+          return res.status(401).json({ message: 'Invalid API key' });
+        }
+      }
+      // No users exist - allow unauthenticated setup access for initial configuration
+    } catch (error) {
+      console.error('[ERROR] checking users for setup access:', error);
+      // On error, be safe and require authentication
+      if (!token) {
+        return res.redirect('/login');
+      }
+    }
+    return next();
+  }
+
+  // Public route check (excluding /setup which is handled above)
+  if (PUBLIC_ROUTES.some(route => req.path.startsWith(route) && route !== '/setup')) {
     return next();
   }
 
@@ -1899,6 +1937,7 @@ router.get('/setup', async (req, res) => {
       PAPERLESS_AI_VERSION: configFile.PAPERLESS_AI_VERSION || ' ',
       PROCESS_ONLY_NEW_DOCUMENTS: process.env.PROCESS_ONLY_NEW_DOCUMENTS || 'yes',
       USE_EXISTING_DATA: process.env.USE_EXISTING_DATA || 'no',
+      KEEP_EXISTING_CORRESPONDENT: process.env.KEEP_EXISTING_CORRESPONDENT || 'no',
       DISABLE_AUTOMATIC_PROCESSING: process.env.DISABLE_AUTOMATIC_PROCESSING || 'no',
       AZURE_ENDPOINT: process.env.AZURE_ENDPOINT || '',
       AZURE_API_KEY: process.env.AZURE_API_KEY || '',
@@ -2698,6 +2737,7 @@ router.get('/settings', async (req, res) => {
     PAPERLESS_AI_VERSION: configFile.PAPERLESS_AI_VERSION || ' ',
     PROCESS_ONLY_NEW_DOCUMENTS: process.env.PROCESS_ONLY_NEW_DOCUMENTS || ' ',
     USE_EXISTING_DATA: process.env.USE_EXISTING_DATA || 'no',
+    KEEP_EXISTING_CORRESPONDENT: process.env.KEEP_EXISTING_CORRESPONDENT || 'no',
     CUSTOM_API_KEY: process.env.CUSTOM_API_KEY || '',
     CUSTOM_BASE_URL: process.env.CUSTOM_BASE_URL || '',
     CUSTOM_MODEL: process.env.CUSTOM_MODEL || '',
@@ -3606,6 +3646,7 @@ router.post('/setup', express.json(), async (req, res) => {
       username,
       password,
       useExistingData,
+      keepExistingCorrespondent,
       customApiKey,
       customBaseUrl,
       customModel,
@@ -3723,6 +3764,7 @@ router.post('/setup', express.json(), async (req, res) => {
       USE_PROMPT_TAGS: usePromptTags || 'no',
       PROMPT_TAGS: normalizeArray(promptTags),
       USE_EXISTING_DATA: useExistingData || 'no',
+      KEEP_EXISTING_CORRESPONDENT: keepExistingCorrespondent || 'no',
       API_KEY: apiToken,
       JWT_SECRET: jwtToken,
       CUSTOM_API_KEY: customApiKey || '',
@@ -4013,6 +4055,7 @@ router.post('/settings', express.json(), async (req, res) => {
       promptTags,
       paperlessUsername,
       useExistingData,
+      keepExistingCorrespondent,
       customApiKey,
       customBaseUrl,
       customModel,
@@ -4055,6 +4098,7 @@ router.post('/settings', express.json(), async (req, res) => {
       USE_PROMPT_TAGS: process.env.USE_PROMPT_TAGS || 'no',
       PROMPT_TAGS: process.env.PROMPT_TAGS || '',
       USE_EXISTING_DATA: process.env.USE_EXISTING_DATA || 'no',
+      KEEP_EXISTING_CORRESPONDENT: process.env.KEEP_EXISTING_CORRESPONDENT || 'no',
       API_KEY: process.env.API_KEY || '',
       CUSTOM_API_KEY: process.env.CUSTOM_API_KEY || '',
       CUSTOM_BASE_URL: process.env.CUSTOM_BASE_URL || '',
@@ -4198,6 +4242,7 @@ router.post('/settings', express.json(), async (req, res) => {
     if (usePromptTags) updatedConfig.USE_PROMPT_TAGS = usePromptTags;
     if (promptTags) updatedConfig.PROMPT_TAGS = normalizeArray(promptTags);
     if (useExistingData) updatedConfig.USE_EXISTING_DATA = useExistingData;
+    if (keepExistingCorrespondent) updatedConfig.KEEP_EXISTING_CORRESPONDENT = keepExistingCorrespondent;
     if (customApiKey) updatedConfig.CUSTOM_API_KEY = customApiKey;
     if (customBaseUrl) updatedConfig.CUSTOM_BASE_URL = customBaseUrl;
     if (customModel) updatedConfig.CUSTOM_MODEL = customModel;
